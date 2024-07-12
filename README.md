@@ -1,2 +1,3 @@
-this tools is free and coded by n1cholas n andr0xghost.
+this tools is free 
+coded by n1cholas ft andr0xghost.
 do not sale this tools!
