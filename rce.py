@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-''' So many people who love you. Don't focus on the people who don't. xD '''
+''' No bio yet'''
 
 import hmac, hashlib, json, requests, re, threading, time, random, sys, os
 requests.packages.urllib3.disable_warnings()
