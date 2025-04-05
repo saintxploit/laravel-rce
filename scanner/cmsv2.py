@@ -1,29 +1,21 @@
+'''coded by Raymond7'''
+'''lets hunt'''
+
 import requests
 import threading
-import ipaddress
-import argparse
 from queue import Queue
-from pyfiglet import Figlet
 from flask import Flask, jsonify
 
 # Suppress warnings
 requests.packages.urllib3.disable_warnings()
 
-# Global config & storage
+# CMS signatures
 CMS_SIGNATURES = {
     "WordPress": ["/wp-login.php", "/wp-admin/", "/xmlrpc.php"],
     "Joomla": ["/administrator/", "/language/en-GB/en-GB.xml"],
     "Laravel": ["/.env", "/vendor/phpunit/phpunit/phpunit"],
     "Magento": ["/admin/", "/magento_version"],
     "PrestaShop": ["/admin-dev/", "/modules/"]
-}
-
-CMS_EXPLOITS = {
-    "WordPress": ["/wp-json/wp/v2/users", "/wp-content/debug.log"],
-    "Joomla": ["/administrator/manifests/files/joomla.xml"],
-    "Laravel": ["/.env"],
-    "Magento": ["/.git/config", "/errors/report.xml"],
-    "PrestaShop": ["/admin-dev/autoupgrade/tmp/log.txt"]
 }
 
 scan_results = []  # For Flask API
@@ -56,20 +48,6 @@ def detect_cms(url):
         scan_results.append({"url": url, "cms": None, "info": msg})
         return None
 
-def scan_vulns(url, cms):
-    if not cms:
-        return
-    for path in CMS_EXPLOITS.get(cms, []):
-        try:
-            full_url = url + path
-            r = requests.get(full_url, verify=False, timeout=5)
-            if r.status_code == 200 and len(r.text) > 20:
-                msg = f"[!!!] Exposed file: {url}{path}"
-                print(msg)
-                scan_results.append({"url": url, "cms": cms, "info": msg})
-        except:
-            continue
-
 def brute_force_stub(url, cms):
     if cms == "WordPress":
         login_url = url + "/wp-login.php"
@@ -92,58 +70,75 @@ def worker():
         target = TARGETS.get()
         url = target if target.startswith("http") else f"http://{target}"
         cms = detect_cms(url)
-        scan_vulns(url, cms)
         brute_force_stub(url, cms)
         TARGETS.task_done()
 
-def load_targets(file):
+def load_targets_from_file(file):
     with open(file) as f:
         for line in f:
             entry = line.strip()
-            if '/' in entry:
-                try:
-                    net = ipaddress.ip_network(entry, strict=False)
-                    for ip in net.hosts():
-                        TARGETS.put(str(ip))
-                except ValueError:
-                    print(f"[!] Invalid CIDR: {entry}")
-            else:
+            if entry:
                 TARGETS.put(entry)
 
 def run_flask():
     app.run(host="0.0.0.0", port=5000)
 
-def main():
-    parser = argparse.ArgumentParser(description="Aggressive CMS Scanner by Sean")
-    parser.add_argument('--targets', type=str, required=True, help='Path to targets.txt')
-    parser.add_argument('--threads', type=int, default=20, help='Number of threads')
-    parser.add_argument('--web', action='store_true', help='Enable live Flask panel')
-    args = parser.parse_args()
+def banner():
+    print(r"""
+   _____ ____  __  __  ____   ___   ___   ___  
+  / ____/ __ \|  \/  |/ __ \ / _ \ / _ \ / _ \ 
+ | |   | |  | | \  / | |  | | | | | | | | | | |
+ | |___| |__| | |\/| | |__| | |_| | |_| | |_| |
+  \_____\____/|_|  |_|\____/ \___/ \___/ \___/ 
+      Aggressive CMS Scanner V2 - by Sean 
+""")
 
-    # Banner
-    f = Figlet(font='slant')
-    print(f.renderText('Sean'))
+def menu():
+    print("1. Single Scan")
+    print("2. Mass Scan (from file)")
+    print("3. Exit")
+    return input("Select option: ")
 
-    # Load targets
+def single_scan():
+    url = input("Enter target URL (with or without http): ").strip()
+    url = url if url.startswith("http") else f"http://{url}"
+    cms = detect_cms(url)
+    brute_force_stub(url, cms)
+    print("[✓] Single scan complete.")
+
+def mass_scan():
+    path = input("Enter path to targets.txt: ").strip()
+    threads = int(input("Number of threads: ").strip())
+    enable_web = input("Enable live panel? (y/n): ").lower() == 'y'
+
     print("[*] Loading targets...")
-    load_targets(args.targets)
+    load_targets_from_file(path)
 
-    # Optional: run Flask panel
-    if args.web:
+    if enable_web:
         threading.Thread(target=run_flask, daemon=True).start()
         print("[*] Live panel available at http://localhost:5000/results")
 
-    # Start scanning
-    print(f"[*] Starting scanner with {args.threads} threads...\n")
-    threads = []
-    for _ in range(args.threads):
-        t = threading.Thread(target=worker)
-        t.daemon = True
+    print(f"[*] Starting scanner with {threads} threads...\n")
+    for _ in range(threads):
+        t = threading.Thread(target=worker, daemon=True)
         t.start()
-        threads.append(t)
 
     TARGETS.join()
-    print("\n[✓] Scan complete.")
+    print("\n[✓] Mass scan complete.")
+
+def main():
+    banner()
+    while True:
+        choice = menu()
+        if choice == '1':
+            single_scan()
+        elif choice == '2':
+            mass_scan()
+        elif choice == '3':
+            print("Goodbye!")
+            break
+        else:
+            print("Invalid option.\n")
 
 if __name__ == "__main__":
     main()
