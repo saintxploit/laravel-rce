@@ -15,10 +15,12 @@ CMS_SIGNATURES = {
     "Joomla": ["/administrator/", "/language/en-GB/en-GB.xml"],
     "Laravel": ["/.env", "/vendor/phpunit/phpunit/phpunit"],
     "Magento": ["/admin/", "/magento_version"],
-    "PrestaShop": ["/admin-dev/", "/modules/"]
+    "PrestaShop": ["/admin-dev/", "/modules/"],
+    "Drupal": ["/core/install.php", "/CHANGELOG.txt"],
+    "OpenCart": ["/admin/index.php", "/catalog/view/theme/default/template/common/home.tpl"]
 }
 
-scan_results = []  # For Flask API
+scan_results = []
 TARGETS = Queue()
 
 # Flask setup
@@ -35,7 +37,15 @@ def detect_cms(url):
                 r = requests.get(url + path, verify=False, timeout=5)
                 if r.status_code in [200, 401, 403]:
                     result = f"[+] {url} → {cms} (found: {path})"
-                    print(result)
+                    color = {
+                        "WordPress": "\033[94m",      # Blue
+                        "Joomla": "\033[92m",         # Green
+                        "PrestaShop": "\033[95m",     # Purple
+                        "Magento": "\033[90m",        # Gray
+                        "Drupal": "\033[91m",         # Red
+                        "OpenCart": "\033[95;1m"      # Pink (bright magenta)
+                    }.get(cms, "\033[0m")
+                    print(f"{color}{result}\033[0m")
                     scan_results.append({"url": url, "cms": cms, "info": result})
                     return cms
         msg = f"[-] {url} CMS not identified."
@@ -90,7 +100,7 @@ def banner():
  | |   | |  | | \  / | |  | | | | | | | | | | |
  | |___| |__| | |\/| | |__| | |_| | |_| | |_| |
   \_____\____/|_|  |_|\____/ \___/ \___/ \___/ 
-      Aggressive CMS Scanner V2 - by Sean 
+      Aggressive CMS Scanner v2- by Sean
 """)
 
 def menu():
