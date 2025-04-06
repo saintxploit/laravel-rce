@@ -1,3 +1,5 @@
+'''coded by Raymond7'''
+'''lets hunt'''
 import requests
 import sys
 import threading
