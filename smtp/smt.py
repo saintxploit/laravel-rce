@@ -61,8 +61,9 @@ def log_result(message, success=False):
     with lock:
         color = Fore.GREEN if success else Fore.RED
         print(color + message + Style.RESET_ALL)
-        with open(output_file, "a") as f:
-            f.write(f"{datetime.now()} - {message}\n")
+        if success:
+            with open(output_file, "a") as f:
+                f.write(f"{datetime.now()} - {message}\n")
 
 def extract_env_values(text):
     env_data = {}
