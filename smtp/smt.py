@@ -7,6 +7,7 @@ import re
 import random
 from datetime import datetime
 from colorama import Fore, Style, init
+from pyfiglet import Figlet  # Added for banner
 
 # Initialize colorama
 init(autoreset=True)
@@ -156,14 +157,9 @@ def scan_target(target_url):
     scan_sensitive_paths(target_url)
 
 def main():
-    print(Fore.RED + """
-   _____                         
-  / ____|                        
- | (___   ___  __ _ _ __   ___  
-  \___ \ / _ \/ _` | '_ \ / _ \ 
-  ____) |  __/ (_| | | | |  __/ 
- |_____/ \___|\__,_|_| |_|\___|  
-    """ + Fore.YELLOW + "by Sean" + Style.RESET_ALL)
+    banner = Figlet(font='slant')
+    print(Fore.RED + banner.renderText("Laravel Scanner"))
+    print(Fore.YELLOW + "           by Sean" + Style.RESET_ALL)
 
     while True:
         print("\n[1] Single Target Scan")
