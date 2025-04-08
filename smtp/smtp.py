@@ -843,14 +843,14 @@ def main(url):
 			else:
 				text += ' | \033[31;1mPAYPAL\033[0m'
 		else:
-			text += ' | \033[31;1mCan\'t get everything\033[0m'
+			text += ' | \033[31;1mcan\'t get anyting\033[0m'
 			save = open('Results/not_vulnerable.txt','a')
 			asu = str(url).replace('\r', '')
 			save.write(asu+'\n')
 			save.close()
 	except:
 		text = '\033[31;1m#\033[0m '+url
-		text += ' | \033[31;1mCan\'t access sites\033[0m'
+		text += ' | \033[31;1mcan\'t access the sites\033[0m'
 		save = open('Results/not_vulnerable.txt','a')
 		asu = str(url).replace('\r', '')
 		save.write(asu+'\n')
