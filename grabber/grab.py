@@ -1,3 +1,6 @@
+'''coded by Raymond7'''
+'''lets hunt'''
+
 import os
 import time
 import random
