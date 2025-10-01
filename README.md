@@ -1,4 +1,4 @@
 this tools is free <br>
-coded by raymond7 ft andr0xghost. <br>
+coded by Raymond7 <br>
 do not sale this tools!
 
